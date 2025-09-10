@@ -1,7 +1,7 @@
 #!/home/kaan/qt_designs/venv/bin/python3
 
 
-import sys, os
+import sys, os, math
 from PyQt6 import QtWidgets
 
 import subprocess
@@ -70,7 +70,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         actionMenu.triggered.connect(lambda: self.stacked.setCurrentIndex(2))
         actionMenu.triggered.connect(lambda: self.tabs.clear()) # clear the table when switched to home page
         actionInfo.triggered.connect(lambda: self.stacked.setCurrentIndex(1))
+        actionInfo.triggered.connect(lambda: self.tabs.clear()) # clear the table when switched to info page
         actionVersion.triggered.connect(lambda: self.stacked.setCurrentIndex(0))
+        actionVersion.triggered.connect(lambda: self.tabs.clear())
+
+
+
+
+
+
+
+
          
         
         self.tabs = self.tabWidget
@@ -357,16 +367,34 @@ Current goals of the software mainly include:
     
 
     def paintEvent(self, event):
-      painter = QPainter(self)
-      painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
-      painter.setPen(QtCore.Qt.GlobalColor.green)
-      painter.setBrush(QtCore.Qt.GlobalColor.white)
-      painter.drawLine(150, 200, 200, 250)
-
-
-# this function will draw lines from the center of the widget to point to the scanned homework devices from nmap output
-    def paintLines(self, event):
         
+        # this lines should not show up other than menu page 
+        if self.stacked.currentIndex() != 2:
+            return
+
+        painter = QPainter(self)
+        painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+        painter.setPen(QtCore.Qt.GlobalColor.green)
+        painter.setBrush(QtCore.Qt.GlobalColor.white)
+        #painter.drawLine(150, 190, 200, 250)
+
+        # cx and cy will be the cx and cy of the logo 
+        cx, cy  =  200, 266
+        radius = 100
+        num_lines = 6
+        
+        
+
+        for i in range(num_lines):
+            angle = i * (360 / num_lines)  # degrees
+            rad = math.radians(angle)
+            x = cx + radius * math.cos(rad)
+            y = cy - radius * math.sin(rad)  # minus because Qt y-axis is downward
+            painter.drawLine(cx, cy, int(x), int(y))
+
+
+
+       
 
 
 
