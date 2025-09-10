@@ -1,9 +1,4 @@
 #!/bin/bash 
-
-
-
-
-
 install_requirements(){
 
 	pip3 install -r requirements.txt 
@@ -18,7 +13,7 @@ generate_ui(){
 
 	pyuic6 mainwindow.ui -o MainWindow.py && \
 		echo "User interface file is generated successfully" || \
-		echo "User interface file is generated successfully"
+		echo "User interface file generation failed"
 
 }
 

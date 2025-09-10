@@ -2,7 +2,8 @@
 
 
 import sys, os
-from PyQt6 import QtWidgets, QMessageBox
+from PyQt6 import QtWidgets
+
 import subprocess
 
 
@@ -14,50 +15,169 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, *args, obj=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.setupUi(self)
+
+        
+
+        # an empty set to keep track of the network modules of the end device self.
+
+        #self.ifconfig_units = set([])  
+        #self.flags_info = []
+        self.hardware_flags_dict = {}
+        self.hardware_mtu_dict = {}
+        self.hardware_mac_dict = {}
+        self.hardware_bcast_dict = {}
+        self.hardware_ipv4_dict = {}
+        self.hardware_ipv6_dict = {}
+        self.hardware_nm_dict = {}
+
+
+        # icons 
+        self.home_pc_label = QtWidgets.QLabel(self.widget)
+        self.home_pc_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignVCenter)
+
+        # label should be in the center of self.widget
+        self.home_pc_label.setGeometry(QtCore.QRect(125, 125, 64, 64)) # x,y,width,height
+
+       
+        self.home_pc_label_icon = QtGui.QPixmap("icons/some_other/monitor.png")
+
+        self.home_pc_label.setPixmap(self.home_pc_label_icon)
+
+        self.visible = True
+        
+        self.timer = QtCore.QTimer(self)
+        self.timer.timeout.connect(self.toggle_icon) 
+        self.timer.start(700) 
         
         self.setWindowTitle("HomeMap-Open Source Local Network Topology Analyzer")    
         
         self.stacked = self.stackedWidget
 
         self.setCentralWidget(self.stacked)
-
+        
+        self.progressBar.setValue(0)
         actionInfo = self.actionInfo
         actionVersion = self.actionVersion
         actionQuit = self.actionQuit
 
-
-        actionInfo.triggered.connect(lambda: self.stacked.setCurrentIndex(1))
-        actionVersion.triggered.connect(lambda: self.stacked.setCurrentIndex(0))
+        actionMenu = self.menuHome.addAction("Home Menu")
 
         
-        self.actionInfo.triggered.connect(self.scan_home_network)
+        actionInfo.setIcon(QtGui.QIcon("icons/info/information.png"))
+        actionVersion.setIcon(QtGui.QIcon("icons/system/version.png"))
+        actionMenu.setIcon(QtGui.QIcon("icons/some_other/home.png"))
+
+        actionMenu.triggered.connect(lambda: self.stacked.setCurrentIndex(2))
+        actionMenu.triggered.connect(lambda: self.tabs.clear()) # clear the table when switched to home page
+        actionInfo.triggered.connect(lambda: self.stacked.setCurrentIndex(1))
+        actionVersion.triggered.connect(lambda: self.stacked.setCurrentIndex(0))
+         
+        
+        self.tabs = self.tabWidget
+        
+        # we need to clear the tabs when we open home page 
+        # when the home page is opened, we need to clear the tabs
+
+        
+        self.ifconfig_button.clicked.connect(self.scan_home_network)
+        self.ifconfig_button.clicked.connect(self.paintEvent)
+
+        self.ifconfig_button.setToolTip('Obtain information about the network interface of this computer')
+
+        #self.actionInfo.triggered.connect(self.scan_home_network)
         self.actionInfo.triggered.connect(self.displayProgramInformation)
         self.actionVersion.triggered.connect(self.displayVersionInformation)
         self.actionQuit.triggered.connect(self.QuitApplication)
+
+
         self.label_3.setAlignment(QtCore.Qt.AlignmentFlag.AlignLeft|QtCore.Qt.AlignmentFlag.AlignTop)
 
 
 
+    def toggle_icon(self):
+        if self.visible:
+            self.home_pc_label.clear()
+        else:
+            self.home_pc_label.setPixmap(self.home_pc_label_icon)
+        self.visible = not self.visible
+
+
+
     def scan_home_network(self, checked):
+        # clear the interface set before
+        self.hardware_flags_dict.clear()
+        self.hardware_mtu_dict.clear()
+        self.hardware_mac_dict.clear()
 
         #return_code = subprocess.Popen(('ls | grep README '),shell=True, stdout=subprocess.PIPE)
         return_code = subprocess.Popen(('ifconfig'), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE) # this returns none, which is wrong 
           
         output, err = return_code.communicate()
 
-        output = output.decode('utf-8').split('\n')
+        output = output.decode('utf-8')
+        
+        devices = output.strip().split("\n\n")
+
+        for i, dev in enumerate(devices, 1):
+            lines = dev.splitlines() # this takes lines of every splitted hardware of our computer 
+            first_line = lines[0] 
+            name = first_line.split(":")[0] 
+            
+            flags = first_line.split()[1].split("=")[1] # takes the flags 
+            mtu = first_line.split()[3] # we take the maximum_transmission_unit   
+
+            #self.flags_info.append(flags)
+            #self.ifconfig_units.add(name)
+           
+            # we need to map from key to the strings dict[key-device_name] --> string(flag)
+            self.hardware_flags_dict[name] = flags
+            self.hardware_mtu_dict[name] = mtu            
+            
+
+        #self.displayIfconfigUnits()     
+        self.progressBar.setValue(50)
+        
+        #for indv in self.hardware_mac_dict:
+        #    print(self.hardware_mac_dict)
+
+        for i, dev in enumerate(devices, 1):
+            lines = dev.splitlines()
+            first_line = lines[0]
+            name = first_line.split(":")[0]
+            
+            self.hardware_mac_dict[name] = ''
+            self.hardware_bcast_dict[name] = ''
+            self.hardware_ipv4_dict[name] = ''
+            self.hardware_ipv6_dict[name] = ''
+            self.hardware_nm_dict[name] = ''
 
 
-        for i, line in enumerate(output):
-            if line.startswith("wlo"):
-                print("matched line", line.strip())
-                if i + 1 < len(output):
-                    ip_line = output[i+1].strip()
-                    parts = ip_line.split()
-                    if len(parts) >= 2 and parts[0] == "inet":
-                        ip = parts[1]
-                        #self.lineEdit.setText(ip)  
-                        self.label_2.setText(ip)
+            self.progressBar.setValue(75)
+            for line in lines:
+                parts = line.split()
+                if parts and parts[0] == 'ether':
+                    self.hardware_mac_dict[name] = parts[1]
+                    #break # no need to check for further lines for this device 
+                for part in parts:
+                    if part == 'broadcast':
+                        index_part = parts.index(part)
+                        self.hardware_bcast_dict[name] = parts[index_part+1]
+                    if part == 'inet':
+                        index_part = parts.index(part)
+                        self.hardware_ipv4_dict[name] = parts[index_part+1]
+                    if part == 'inet6':
+                        index_part = parts.index(part)
+                        self.hardware_ipv6_dict[name] = parts[index_part+1]
+                    if part == 'netmask':
+                        index_part = parts.index(part)
+                        self.hardware_nm_dict[name] = parts[index_part+1]
+
+        self.progressBar.setValue(100)
+        print(self.hardware_mac_dict)
+
+
+        self.displayIfconfigUnits()     
+    
 
 
     def displayProgramInformation(self):
@@ -80,21 +200,181 @@ Current goals of the software mainly include:
 
 
     def displayVersionInformation(self):
+        
+        self.version_label.setText("Software Version")
+        self.version_number.setText("V0.1")
 
-        self.version_text = "Version 0.1.0\n\nThis is the first version of HomeMap software, which is developed to visualize local home network topologies and provide useful information about connected devices. The software is still in development and new features will be added in future versions."
 
 
 
-        self.version_label.setText(self.version_text)
+    def displayIfconfigUnits(self):
+        self.tabs.clear()
+        for unit in self.hardware_flags_dict:
+            tab = QtWidgets.QWidget()
+            tab.setObjectName(unit)
+            tab_layout = QtWidgets.QHBoxLayout(tab)
+            #tab_label = QtWidgets.QLabel(f"Information for {unit}")
+            #tab_label.setObjectName(f"{unit}_label")
+            #tab_layout.addWidget(tab_label)
+            self.tabs.addTab(tab, unit)
+             
+            table = QtWidgets.QTableWidget(tab) # every tab is our parent widget
+            table.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
+             
+            table.setColumnCount(2) 
+            table.setRowCount(7)
 
+            table.setHorizontalHeaderLabels(["Property", "Value"])
+            
+            #set tooltip for the table items one by one 
+            inet_table_item = QtWidgets.QTableWidgetItem("inet")
+            inet_table_item.setToolTip("IPv4 Address of the device")
+            inet_table_item.setFlags(inet_table_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable) 
+            table.setItem(0, 0, inet_table_item) 
+            table.resizeColumnsToContents()
+            
+            net_mask_item = QtWidgets.QTableWidgetItem("Inet4 NetMask")
+            net_mask_item.setToolTip("NetMask of Ipv4 address") 
+            net_mask_item.setFlags(net_mask_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable) 
+            table.setItem(1, 0, net_mask_item)
+            table.resizeColumnsToContents()
+
+
+            inet6_table_item = QtWidgets.QTableWidgetItem("inet6")
+            inet6_table_item.setToolTip("IpV6 Address of the hardware interface")
+            inet6_table_item.setFlags(inet6_table_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+            table.setItem(2, 0, inet6_table_item)
+            table.resizeColumnsToContents()
+
+            mac_item = QtWidgets.QTableWidgetItem("mac address") 
+            mac_item.setToolTip("Mac address of the interface")
+            mac_item.setFlags(mac_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+            table.setItem(3, 0, mac_item)
+            table.resizeColumnsToContents()
+
+            broadcast_item = QtWidgets.QTableWidgetItem("broadcast address")
+            broadcast_item.setToolTip("Broadcast address of the interface")
+            broadcast_item.setFlags(broadcast_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+            table.setItem(4, 0, broadcast_item)
+            table.resizeColumnsToContents()
+
+             
+            flags_item = QtWidgets.QTableWidgetItem("Flags")
+            flags_item.setToolTip("Shows useful information about the realtime condition of the interface")
+            flags_item.setFlags(flags_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+            table.setItem(5, 0, flags_item)
+            table.resizeColumnsToContents()
+           
+
+            mtu_item = QtWidgets.QTableWidgetItem("Maximum Transmission Unit")
+            mtu_item.setToolTip("Gives useful information about the amount of transmission size in bytes") 
+            mtu_item.setFlags(mtu_item.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+            table.setItem(6, 0, mtu_item)
+            table.resizeColumnsToContents()
+
+        
+
+            table_ip =  QtWidgets.QTableWidgetItem(self.hardware_ipv4_dict[unit])
+            table.setItem(0, 1, table_ip)
+            table_ip.setFlags(table_ip.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+            if table_ip.text() == '':
+                table_ip.setBackground(QtGui.QColor("gray"))   
+            else:
+                table_ip.setBackground(QtGui.QColor("green"))
+
+            table.resizeColumnsToContents()
+            
+            
+            table_nm = QtWidgets.QTableWidgetItem(self.hardware_nm_dict[unit])
+            table_nm.setFlags(table_nm.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+            table.setItem(1, 1, table_nm)  
+            if table_nm.text() == '':
+                table_nm.setBackground(QtGui.QColor("gray"))
+            else:
+                table_nm.setBackground(QtGui.QColor("green"))
+
+            table.resizeColumnsToContents()
+
+
+
+            table_ipv6 = QtWidgets.QTableWidgetItem(self.hardware_ipv6_dict[unit])
+            table_ipv6.setFlags(table_ipv6.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+            table.setItem(2, 1, table_ipv6)  
+            if table_ipv6.text() == '':
+                table_ipv6.setBackground(QtGui.QColor("gray"))
+            else:
+                table_ipv6.setBackground(QtGui.QColor("green"))
+
+
+            table.resizeColumnsToContents()
+            
+            table_mac_dict = QtWidgets.QTableWidgetItem(self.hardware_mac_dict[unit])
+            table_mac_dict.setFlags(table_mac_dict.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+            table.setItem(3, 1, table_mac_dict)
+            if table_mac_dict.text() == '': 
+                table_mac_dict.setBackground(QtGui.QColor("gray"))
+            else:
+                table_mac_dict.setBackground(QtGui.QColor("green"))
+
+            table.resizeColumnsToContents()
+
+            table_bcast_dict = QtWidgets.QTableWidgetItem(self.hardware_bcast_dict[unit])  
+            table_bcast_dict.setFlags(table_bcast_dict.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+            table.setItem(4, 1, table_bcast_dict)  
+            if table_bcast_dict.text() == '':
+                table_bcast_dict.setBackground(QtGui.QColor("gray"))
+            else: 
+                table_bcast_dict.setBackground(QtGui.QColor("green"))
+
+            table.resizeColumnsToContents()
+
+            table_flags = QtWidgets.QTableWidgetItem(self.hardware_flags_dict[unit])
+            table_flags.setFlags(table_flags.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+            table.setItem(5, 1, table_flags)
+            if table_flags.text() == '':
+                table_flags.setBackground(QtGui.QColor("gray"))
+            else:
+                table_flags.setBackground(QtGui.QColor("green"))
+
+            table.resizeColumnsToContents()
+            
+            table_mtu = QtWidgets.QTableWidgetItem(self.hardware_mtu_dict[unit])
+            table_mtu.setFlags(table_mtu.flags() & ~QtCore.Qt.ItemFlag.ItemIsEditable)
+            table.setItem(6, 1, table_mtu)
+            if table_mtu.text() == '':
+                table_mtu.setBackground(QtGui.QColor("gray"))
+            else:
+                table_mtu.setBackground(QtGui.QColor("green"))
+ 
+
+
+            table.resizeColumnsToContents()
+            
+            tab_layout.addWidget(table)
+            # Set the tab as the current tab
+            self.tabs.setCurrentWidget(tab)
+
+    
+
+    def paintEvent(self, event):
+      painter = QPainter(self)
+      painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
+      painter.setPen(QtCore.Qt.GlobalColor.green)
+      painter.setBrush(QtCore.Qt.GlobalColor.white)
+      painter.drawLine(150, 200, 200, 250)
+
+
+# this function will draw lines from the center of the widget to point to the scanned homework devices from nmap output
+    def paintLines(self, event):
+        
 
 
 
     def QuitApplication(self):
 
-        reply = QMessageBox.question(self, 'Window Close', 'Are you sure 'Are you sure you want to close the window?', QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
+        reply = QtWidgets.QMessageBox.question(self, 'Window Close', 'Are you sure you want to close the window?', QtWidgets.QMessageBox.StandardButton.Yes | QtWidgets.QMessageBox.StandardButton.No, QtWidgets.QMessageBox.StandardButton.No)
 
-        if reply == QMessageBox.Yes:
+        if reply == QtWidgets.QMessageBox.StandardButton.Yes:
             self.close()
             print('Application exited')
         else:
