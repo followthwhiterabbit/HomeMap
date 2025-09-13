@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>965</width>
-    <height>608</height>
+    <width>974</width>
+    <height>627</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -20,10 +20,10 @@
     </property>
     <property name="geometry">
      <rect>
-      <x>-30</x>
+      <x>10</x>
       <y>-20</y>
-      <width>891</width>
-      <height>551</height>
+      <width>921</width>
+      <height>611</height>
      </rect>
     </property>
     <property name="currentIndex">
@@ -188,6 +188,68 @@
        </rect>
       </property>
      </widget>
+     <widget class="QPushButton" name="topology_button">
+      <property name="geometry">
+       <rect>
+        <x>150</x>
+        <y>30</y>
+        <width>94</width>
+        <height>26</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Visualize</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="clearpaint_button">
+      <property name="geometry">
+       <rect>
+        <x>260</x>
+        <y>30</y>
+        <width>111</width>
+        <height>26</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Clear Network</string>
+      </property>
+     </widget>
+     <widget class="QTabWidget" name="tabWidget_2">
+      <property name="geometry">
+       <rect>
+        <x>40</x>
+        <y>340</y>
+        <width>441</width>
+        <height>211</height>
+       </rect>
+      </property>
+      <property name="currentIndex">
+       <number>0</number>
+      </property>
+      <widget class="QWidget" name="tab_3">
+       <attribute name="title">
+        <string>Tab 1</string>
+       </attribute>
+      </widget>
+      <widget class="QWidget" name="tab_4">
+       <attribute name="title">
+        <string>Tab 2</string>
+       </attribute>
+      </widget>
+     </widget>
+     <widget class="QProgressBar" name="progressBar_2">
+      <property name="geometry">
+       <rect>
+        <x>200</x>
+        <y>560</y>
+        <width>118</width>
+        <height>23</height>
+       </rect>
+      </property>
+      <property name="value">
+       <number>24</number>
+      </property>
+     </widget>
     </widget>
    </widget>
   </widget>
@@ -200,7 +262,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>965</width>
+     <width>974</width>
      <height>23</height>
     </rect>
    </property>

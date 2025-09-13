@@ -1,22 +1,16 @@
 #!/home/kaan/qt_designs/venv/bin/python3
 
-
-import sys, os, math
+import sys, os, math, nmap
 from PyQt6 import QtWidgets
 
 import subprocess
 
-
-
 from MainWindow import *
-
 
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
     def __init__(self, *args, obj=None, **kwargs):
         super().__init__(*args, **kwargs)
         self.setupUi(self)
-
-        
 
         # an empty set to keep track of the network modules of the end device self.
 
@@ -29,7 +23,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.hardware_ipv4_dict = {}
         self.hardware_ipv6_dict = {}
         self.hardware_nm_dict = {}
-
+        
+        # number of hosts in the local network
+        self.num_of_hosts = 0
+        self.percent_value = 0
 
         # icons 
         self.home_pc_label = QtWidgets.QLabel(self.widget)
@@ -56,6 +53,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         self.setCentralWidget(self.stacked)
         
         self.progressBar.setValue(0)
+        self.progressBar_2.setValue(0)
+
         actionInfo = self.actionInfo
         actionVersion = self.actionVersion
         actionQuit = self.actionQuit
@@ -74,25 +73,25 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         actionVersion.triggered.connect(lambda: self.stacked.setCurrentIndex(0))
         actionVersion.triggered.connect(lambda: self.tabs.clear())
 
-
-
-
-
-
-
-
          
         
         self.tabs = self.tabWidget
+        self.tabs_2 = self.tabWidget_2
+
+
         
         # we need to clear the tabs when we open home page 
         # when the home page is opened, we need to clear the tabs
 
         
         self.ifconfig_button.clicked.connect(self.scan_home_network)
-        self.ifconfig_button.clicked.connect(self.paintEvent)
+        self.topology_button.clicked.connect(self.nmap_search)
+        self.topology_button.clicked.connect(self.paintEvent)
+        self.clearpaint_button.clicked.connect(self.clear_paint)
+
 
         self.ifconfig_button.setToolTip('Obtain information about the network interface of this computer')
+        self.topology_button.setToolTip('Scan the local network and find the number of hosts connected to the local gateway')
 
         #self.actionInfo.triggered.connect(self.scan_home_network)
         self.actionInfo.triggered.connect(self.displayProgramInformation)
@@ -183,7 +182,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
                         self.hardware_nm_dict[name] = parts[index_part+1]
 
         self.progressBar.setValue(100)
-        print(self.hardware_mac_dict)
+        #print(self.hardware_mac_dict)
 
 
         self.displayIfconfigUnits()     
@@ -364,7 +363,15 @@ Current goals of the software mainly include:
             # Set the tab as the current tab
             self.tabs.setCurrentWidget(tab)
 
+
+
+
+
+
+
     
+    # this function will take number of items from the nmap search
+    # we also need to clean the paint event so that it does not draw lines on other pages
 
     def paintEvent(self, event):
         
@@ -372,7 +379,7 @@ Current goals of the software mainly include:
         if self.stacked.currentIndex() != 2:
             return
 
-        painter = QPainter(self)
+        painter = QtGui.QPainter(self)
         painter.setRenderHint(QtGui.QPainter.RenderHint.Antialiasing)
         painter.setPen(QtCore.Qt.GlobalColor.green)
         painter.setBrush(QtCore.Qt.GlobalColor.white)
@@ -381,9 +388,9 @@ Current goals of the software mainly include:
         # cx and cy will be the cx and cy of the logo 
         cx, cy  =  200, 266
         radius = 100
-        num_lines = 6
-        
-        
+        num_lines = self.num_of_hosts - 1 # we should not count our own device apparently
+
+   
 
         for i in range(num_lines):
             angle = i * (360 / num_lines)  # degrees
@@ -391,10 +398,133 @@ Current goals of the software mainly include:
             x = cx + radius * math.cos(rad)
             y = cy - radius * math.sin(rad)  # minus because Qt y-axis is downward
             painter.drawLine(cx, cy, int(x), int(y))
+             
+
+    
+    # this function will clean the paint when we press clear button or switch to other pages
+    def clear_paint(self, event):
+        self.num_of_hosts = 0
+        self.repaint()
+        self.progressBar.setValue(0)
+        #self.update()
+        #self.paintEvent(None)
 
 
 
-       
+
+    # we need to have a widget to be able to make nmap searches and use nmap library
+    # count the number of hosts in the local network
+    def nmap_search(self):
+        nm = nmap.PortScanner()
+        #nm.scan('192.168.0.0/24', '22-443')
+
+        self.progressBar_2.setValue(0)
+        nm.scan('192.168.0.0/24', arguments='-sn', sudo=True)  
+        
+        for host in nm.all_hosts():
+            #print('--------------------------------------------')
+            #print('Host : %s (%s)' % (host, nm[host].hostname()))
+            #print('State : %s' % nm[host].state())
+            #for proto in nm[host].all_protocols():
+                #print('--------')
+                #print('Protocol : %s' % proto)
+
+
+                #lport = nm[host][proto].keys()
+                #sorted(lport)
+                #for port in lport:
+                    #print('port: %s\tstate: %s' % (port, nm[host][proto][port]['state']))
+        
+            self.num_of_hosts += 1
+        
+        self.percent_value = int(100 / self.num_of_hosts)
+        
+
+        self.tabs_2.clear()
+        for host in nm.all_hosts():
+            i = 1
+            # this will use the second tab widget which is QTabWidget_2
+            # we will create a new tab for every host
+            tab = QtWidgets.QWidget()
+            tab.setObjectName(host)
+            tab_layout = QtWidgets.QHBoxLayout(tab)
+            #tab_label = QtWidgets.QLabel(f"Information for {host}")
+            #tab_label.setObjectName(f"{host}_label")
+            #tab_layout.addWidget(tab_label)
+            self.tabs_2.addTab(tab, host)
+            
+
+            table_hosts = QtWidgets.QTableWidget(tab) # every tab is our parent widget
+            table_hosts.setSizeAdjustPolicy(QtWidgets.QAbstractScrollArea.SizeAdjustPolicy.AdjustToContents)
+
+            table_hosts.setColumnCount(2)
+            table_hosts.setRowCount(4)
+
+            table_hosts.setHorizontalHeaderLabels(["Prop..", "Val"])
+
+            # set tooltip for the table items one by one
+            hostname_item = QtWidgets.QTableWidgetItem("Hostname")
+            hostname_item.setToolTip("Hostname of the device")
+            table_hosts.setItem(0, 0, hostname_item)
+            table_hosts.resizeColumnsToContents()
+
+            hostname_value = QtWidgets.QTableWidgetItem(nm[host].hostname())
+            table_hosts.setItem(0, 1, hostname_value)
+            hostname_value.setToolTip("Hostname of the device")
+            table_hosts.resizeColumnsToContents()
+
+            state_item = QtWidgets.QTableWidgetItem("State")
+            state_item.setToolTip("State of the device")
+            table_hosts.setItem(1, 0, state_item)
+            table_hosts.resizeColumnsToContents()
+
+
+            state_value = QtWidgets.QTableWidgetItem(nm[host].state())
+            table_hosts.setItem(1, 1, state_value)
+            state_value.setToolTip("State of the device")
+            table_hosts.resizeColumnsToContents()
+
+            protocol_item = QtWidgets.QTableWidgetItem("Protocols")
+            protocol_item.setToolTip("Protocols of the device")
+            table_hosts.setItem(2, 0, protocol_item)
+            table_hosts.resizeColumnsToContents()
+
+            protocols = ', '.join(nm[host].all_protocols())
+            protocol_value = QtWidgets.QTableWidgetItem(protocols)
+            table_hosts.setItem(2, 1, protocol_value)
+            protocol_value.setToolTip("Protocols of the device")
+            table_hosts.resizeColumnsToContents()
+
+
+            ports_item = QtWidgets.QTableWidgetItem("Open Ports")
+            ports_item.setToolTip("Open Ports of the device")
+            table_hosts.setItem(3, 0, ports_item)
+            table_hosts.resizeColumnsToContents()
+
+
+            open_ports = []
+            for proto in nm[host].all_protocols():
+                lport = nm[host][proto].keys()
+                for port in lport:
+                    if nm[host][proto][port]['state'] == 'open':
+                        open_ports.append(f"{port}/{proto}")
+
+
+
+            table_hosts.resizeColumnsToContents()
+            
+            tab_layout.addWidget(table_hosts)
+            # Set the tab as the current tab
+            self.tabs.setCurrentWidget(tab)
+
+
+
+            i += 1 
+            self.progressBar_2.setValue(i * self.percent_value)
+
+
+        self.progressBar_2.setValue(100)
+
 
 
 
